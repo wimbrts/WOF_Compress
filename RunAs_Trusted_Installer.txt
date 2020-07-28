@@ -1,0 +1,9 @@
+WOF_Compress needs to be Trusted Installer in case of Path with Windows Operating System folders
+
+Solution
+- Use Wof Compress Tool Checkbox to be Trusted Installer
+- Or be Trusted Installer in Win10XPE Environment
+- Or Run RunAsTI64.exe first and then launch WOF_Compress_x64.exe from Command Window - See WOF_Compr_2020-07-27_200739.jpg
+  In this case WARNING - Location systemprofile\Desktop missing occurs that you simply must close and can proceed
+
+Thanks to Joakim Schicht for making RunAsTI64.exe - https://github.com/jschicht
