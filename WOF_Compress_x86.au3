@@ -2,13 +2,16 @@
 
  AutoIt Version: 3.3.14.5 + file SciTEUser.properties in your UserProfile e.g. C:\Users\User-10
 
- Author:        WIMB  -  July 28, 2020
+ Author:        WIMB  -  August 05, 2020
 
- Program:       WOF_Compress_x86.exe - Version 3.4 in rule 153
+ Program:       WOF_Compress_x86.exe - Version 3.5 in rule 160
 
  Script Function:
 	WOF Compression and Uncompression of Files Or Drives and Folders using Status and Compress Functions made by erwan.l
 	GUI for WOF Compression and Uncompression of Drives and Folders using WofCompress Tool of JFX
+
+	WOF_Compress_x64.exe needs to be Trusted Installer in case of Path with Windows Operating System folders
+	Double-click WOF_Compress_Trusted.cmd so that AdvancedRun.exe is used to Run as Trusted Installer program WOF_Compress_x64.exe
 
  Credits and Thanks to:
 	erwan.l for making the Core of WOF_Compress being Function _Wof_Status_ and _Wof_Uncompress_ and _Wof_Compress_
@@ -16,6 +19,8 @@
 	alacran for topic on WofCompress Tool - http://reboot.pro/topic/22007-wofcompress-tool-for-win7-win10/
 	AZJIO - for making _FO_FileSearch - https://www.autoitscript.com/forum/topic/133224-_filesearch-_foldersearch/
 	BiatuAutMiahn[@Outlook.com] and Danyfirex for making Func _WinAPI_WofSetCompression - https://www.autoitscript.com/forum/topic/189211-wof-file-set-compression/
+	Nir Sofer of NirSoft for making AdvancedRun - https://www.nirsoft.net/utils/advanced_run.html
+	Joakim Schicht for making RunAsTI64.exe - https://github.com/jschicht
 
 	The program is released "as is" and is free for redistribution, use or changes as long as original author,
 	credits part and link to the reboot.pro support forum are clearly mentioned
@@ -85,7 +90,7 @@ Global $COMPR_FileSelect, $COMPR_File_GUI, $COMPR_Size_Label, $EXCL_FileData, $E
 Global $COMPR_Drive_GUI, $COMPR_DriveSel, $COMPR_DriveSize
 ; Setting Other variables
 Global $comp_type = "LZX", $compr_file="", $compr_Size=0, $compr_fsel_flag = 0, $PE_flag = 0
-Global $ComprDrive="", $FSvar_ComprDrive="", $DriveSysType="Fixed", $compr_Path = ""
+Global $ComprDrive="", $FSvar_ComprDrive="", $DriveSysType="Fixed", $compr_Path = "", $LogFile = ""
 
 Global $config_file_compress=@ScriptDir & "\makebt\Compress_Exclude.ini", $excl_file = @ScriptDir & "\makebt\WimBootReCompress.ini"
 Global $config_file_tool=@ScriptDir & "\makebt\WimBootReCompress.ini"
@@ -145,20 +150,23 @@ Else
 	$PE_flag = 0
 EndIf
 
+If Not FileExists(@ScriptDir & "\processed") Then DirCreate(@ScriptDir & "\processed")
+
 ; Creating GUI and controls
-$hGuiParent = GUICreate(" WOF_Compress x86 - Files Or Folders ", 400, 430, 100, 40, -1, -1)
+$hGuiParent = GUICreate(" WOF_Compress x86 - Files Or Folders ", 400, 430, -1, -1, BitXOR($GUI_SS_DEFAULT_GUI, $WS_MINIMIZEBOX))
 GUISetOnEvent($GUI_EVENT_CLOSE, "_Quit")
 
 If $PE_flag = 1 Then
-	GUICtrlCreateGroup("Settings - Version 3.4  -   OS = " & @OSVersion & " " & @OSArch & "  PE", 18, 10, 364, 195)
+	GUICtrlCreateGroup("Settings - Version 3.5  -   OS = " & @OSVersion & " " & @OSArch & "  PE", 18, 10, 364, 195)
 Else
-	GUICtrlCreateGroup("Settings - Version 3.4  -   OS = " & @OSVersion & " " & @OSArch, 18, 10, 364, 195)
+	GUICtrlCreateGroup("Settings - Version 3.5  -   OS = " & @OSVersion & " " & @OSArch, 18, 10, 364, 195)
 EndIf
 
 GUICtrlCreateLabel( "  Exclusion File ", 32, 39)
-$EXCL_FileData = GUICtrlCreateInput($EXCL_FileSelect, 32, 55, 303, 20, $ES_READONLY)
+$EXCL_FileData = GUICtrlCreateInput("", 32, 55, 303, 20, $ES_READONLY)
 $EXCL_FileSelect = GUICtrlCreateButton("...", 341, 56, 26, 18)
-GUICtrlSetTip($EXCL_FileSelect, " Select Exclusion File WimBootReCompress.ini " & @CRLF & " Or Use Custom Exclusion File ")
+GUICtrlSetTip($EXCL_FileSelect, " Select Exclusion File Compress_Exclude.ini " & @CRLF _
+& " Or Select Exclusion File WimBootReCompress.ini " & @CRLF & " Or Use Custom Exclusion File ")
 GUICtrlSetOnEvent($EXCL_FileSelect, "_excl_fsel")
 
 $UNCOMPRESS_BUTTON = GUICtrlCreateButton("Un Compress", 265, 105, 90, 30)
@@ -188,9 +196,9 @@ GUICtrlCreateGroup("Target", 18, 212, 364, 129)
 
 GUICtrlCreateLabel( "  File", 32, 236)
 $COMPR_Size_Label = GUICtrlCreateLabel( "", 60, 236, 290, 15, $ES_READONLY)
-$COMPR_File_GUI = GUICtrlCreateInput($COMPR_FileSelect, 32, 252, 303, 20, $ES_READONLY)
+$COMPR_File_GUI = GUICtrlCreateInput("", 32, 252, 303, 20, $ES_READONLY)
 $COMPR_FileSelect = GUICtrlCreateButton("...", 341, 253, 26, 18)
-GUICtrlSetTip($COMPR_FileSelect, " Select File on NTFS Drive ")
+GUICtrlSetTip($COMPR_FileSelect, " Select File on NTFS Drive " & @CRLF & " Compress / Un Compress without Exclusion ")
 GUICtrlSetOnEvent($COMPR_FileSelect, "_compr_fsel")
 
 GUICtrlCreateLabel( "  Drive Or Folder", 32, 286)
@@ -216,7 +224,7 @@ DisableMenus(1)
 ; using WimBootReCompress.ini as Exclusion file
 $excl_file = $config_file_compress
 GUICtrlSetData($EXCL_FileData, $excl_file)
-
+GUICtrlSetState($EXCL_FileData, $GUI_ENABLE)
 GUICtrlSetState($EXCL_FileSelect, $GUI_ENABLE)
 GUICtrlSetState($Use_FileList, $GUI_UNCHECKED + $GUI_ENABLE)
 GUICtrlSetState($Use_Tool, $GUI_UNCHECKED + $GUI_ENABLE)
@@ -242,6 +250,8 @@ Func CheckGo()
 		GUICtrlSetData($COMPR_File_GUI, $compr_include_selected)
 		GUICtrlSetData($COMPR_Size_Label, "")
 		$compr_file = ""
+		GUICtrlSetData($EXCL_FileData, "")
+		GUICtrlSetState($EXCL_FileSelect, $GUI_DISABLE)
 	Else
 		GUICtrlSetState($Use_Tool, $GUI_ENABLE)
 		If $compr_Path <> "" Then
@@ -251,6 +261,9 @@ Func CheckGo()
 			GUICtrlSetData($COMPR_File_GUI, "")
 			GUICtrlSetData($COMPR_Size_Label, "")
 			$compr_file = ""
+		Else
+			GUICtrlSetData($COMPR_File_GUI, $compr_file)
+			GUICtrlSetState($EXCL_FileSelect, $GUI_ENABLE)
 		EndIf
 	EndIf
 	If GUICtrlRead($Use_Tool) = $GUI_CHECKED Then
@@ -275,6 +288,17 @@ Func CheckGo()
 			$excl_file = $config_file_compress
 			GUICtrlSetData($EXCL_FileData, $excl_file)
 		EndIf
+	EndIf
+
+	If $compr_file <> "" Then
+		GUICtrlSetState($Use_FileList, $GUI_UNCHECKED + $GUI_DISABLE)
+		GUICtrlSetState($Use_Tool, $GUI_UNCHECKED + $GUI_DISABLE)
+		GUICtrlSetData($EXCL_FileData, "")
+		GUICtrlSetState($EXCL_FileSelect, $GUI_DISABLE)
+	EndIf
+
+	If GUICtrlRead($Use_FileList) = $GUI_CHECKED Then
+		GUICtrlSetData($EXCL_FileData, "")
 	EndIf
 
  	If $compr_file <> "" Or $compr_Path <> "" Then
@@ -331,6 +355,7 @@ Func _compr_fsel()
 		If @error Then
 			GUICtrlSetData($COMPR_File_GUI, $compr_include_selected)
 			GUICtrlSetData($COMPR_Size_Label, "")
+			GUICtrlSetData($EXCL_FileData, $excl_file)
 			_GUICtrlStatusBar_SetText($hStatus," Select File Or Drive \ Folder", 0)
 			DisableMenus(0)
 			Return
@@ -503,11 +528,11 @@ Func _compr_drive()
 
 		$DriveSysType=DriveGetType($ComprDrive)
 
-		If FileExists($ComprDrive & "\Windows") And $PE_flag = 0 Then
-			MsgBox(48,"WARNING - Windows Folder Found - Trusted Installer Needed", "Windows Folder Found in Path" & @CRLF & @CRLF _
-			& "Selected Path = " & $DriveSelect & @CRLF & @CRLF & "Use Wof Compress Tool to be Trusted Installer" & @CRLF & @CRLF _
-			& "Or Run RunAsTI64.exe and launch from Command Window " & @CRLF & @CRLF & "Or be Trusted Installer in Win10XPE Environment", 0)
-		EndIf
+;~ 		If FileExists($ComprDrive & "\Windows") And $PE_flag = 0 Then
+;~ 			MsgBox(48,"WARNING - Windows Folder Found - Trusted Installer Needed", "Windows Folder Found in Path" & @CRLF & @CRLF _
+;~ 			& "Selected Path = " & $DriveSelect & @CRLF & @CRLF & "Use Wof Compress Tool to be Trusted Installer" & @CRLF & @CRLF _
+;~ 			& "Or Run RunAsTI64.exe and launch from Command Window " & @CRLF & @CRLF & "Or be Trusted Installer in Win10XPE Environment", 0)
+;~ 		EndIf
 
 		If GUICtrlRead($Use_FileList) = $GUI_CHECKED Then
 			GUICtrlSetData($COMPR_Drive_GUI, $ComprDrive)
@@ -554,6 +579,9 @@ Func _excl_fsel()
 		Return
 	EndIf
 
+	$excl_file = $ini_file
+	$compr_fsel_flag = 1
+
 	If $compr_file <> "" Then
 		_GUICtrlStatusBar_SetText($hStatus," Compress Or UnCompress File", 0)
 	Else
@@ -563,9 +591,6 @@ Func _excl_fsel()
 			_GUICtrlStatusBar_SetText($hStatus," Select File Or Drive \ Folder", 0)
 		EndIf
 	EndIf
-	$excl_file = $ini_file
-	$compr_fsel_flag = 1
-
 	GUICtrlSetData($EXCL_FileData, $excl_file)
 	DisableMenus(0)
 EndFunc   ;==> _excl_fsel
@@ -618,8 +643,8 @@ Func _APPLY_Compress()
 		$iSkip = 0
 		$iDirs = 0
 		$iProcessed = 0
-		$TotalFileSize_Before = 0
-		$TotalFileSize_After = 0
+		; $TotalFileSize_Before = 0
+		; $TotalFileSize_After = 0
 
 		If GUICtrlRead($Use_FileList) = $GUI_CHECKED And FileExists($compr_include_selected) Then
 			$handle = FileOpen($compr_include_selected, 0)
@@ -727,6 +752,8 @@ Func _APPLY_Compress()
 
 		; _ArrayDisplay($FileList)
 
+		$LogFile = "processed" & "\Compress_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+
 		GUICtrlSetData($ProgStat_Label, "  Compression is Running ...")
 
 		If GUICtrlRead($Use_FileList) = $GUI_CHECKED Then
@@ -748,12 +775,22 @@ Func _APPLY_Compress()
 
 		GUICtrlSetData($ProgStat_Label, "")
 
-		MsgBox(64, " END of Compression ", " End of Compression " & @CRLF & @CRLF & " Processed = " & $iProcessed & " Files" & @CRLF _
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; End of Compression " & $comp_type)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Processed Files    = " & $iProcessed)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Not   Compressable = " & $iFail)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Already Compressed = " & $iSkip)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Used Size Drive " & $ComprDrive & " Before = " & Round($Used_Size_Before / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Used Size Drive " & $ComprDrive & " After  = " & Round($Used_Size_After / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Size  on  Drive " & $ComprDrive & " Saved  = " & Round(($Used_Size_Before  - $Used_Size_After) / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Time  = " & $time_msg)
+
+		MsgBox(64, " END of Compression ", " End of Compression " & $comp_type & @CRLF & @CRLF & " Processed = " & $iProcessed & " Files" & @CRLF _
 		& @CRLF & " Not Compressable = " & $iFail & @CRLF & @CRLF & " Already Compressed = " & $iSkip & @CRLF _
 		& @CRLF & " Used Size Drive " & $ComprDrive & " Before = " & Round($Used_Size_Before / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Used Size Drive " & $ComprDrive & "  After   = " & Round($Used_Size_After / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Size  on   Drive  " & $ComprDrive & "  Saved  = " & Round(($Used_Size_Before  - $Used_Size_After) / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Time  = " & $time_msg)
+		GUICtrlSetData($COMPR_DriveSize, $FSvar_ComprDrive & "   Drive Used Size = " & Round($Used_Size_After / 1024, 2) & " GB")
 	EndIf
 
 	; in case of Drive Or Folder Otherwise use WofCompress Tool of JFX
@@ -792,11 +829,14 @@ Func _APPLY_Compress()
 		$iReS = _Wof_Status_($sFilePath)
 		If $iReS = 0 Then
 			GUICtrlSetData($ProgStat_Label, "  Compression is Running ...")
-			MsgBox(64, " Start of Compression ", " Start Compression of " & $compr_file & @CRLF _
-			& @CRLF & "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB", 2)
+;~ 			MsgBox(64, " Start of Compression ", " Start Compression of " & $compr_file & @CRLF _
+;~ 			& @CRLF & "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB", 2)
 			_GUICtrlStatusBar_SetText($hStatus,"  Compression is Running - Wait .... ", 0)
 			$iRet = _Wof_Compress_($sFilePath, $COMPRESSION_FORMAT)
-			; MsgBox(64, " Return ", " Return Compress = 1 - OK " & $iRet)
+
+			; $iRet = RunWait(@ComSpec & " /c " & @WindowsDir & "\system32\compact.exe /C /EXE:" & $comp_type & " " & $compr_file, @ScriptDir, @SW_HIDE)
+			; MsgBox(64, " Return ", " Return Compress 1 is OK - OK = " & $iRet)
+
 			If $iRet <> 1 Then
 				MsgBox(64, " Not Compressable ", " Failed Compression of " & $compr_file & @CRLF _
 				& @CRLF & "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB")
@@ -815,16 +855,26 @@ Func _APPLY_Compress()
 
 		$FileSize = _WinAPI_GetCompressedFileSize($sFilePath)
 
+		$iReS = _Wof_Status_($sFilePath)
+
+		$compr_Size = FileGetSize($compr_file)
+		$compr_Size = Round($compr_Size / 1024)
 		GUICtrlSetData($ProgStat_Label, "")
 		GUICtrlSetData($ProgressAll, 100)
 		_GUICtrlStatusBar_SetText($hStatus," End of Compression ", 0)
 		MsgBox(64, "WOF Compressed - Size on Disk", "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB" & @CRLF _
 		& @CRLF & "Compressed FileSize = " & Round($FileSize / 1024) & " kB" & @CRLF & @CRLF & " Time  = " & Round($fDiff / 1000) & " sec")
+		GUICtrlSetData($COMPR_Size_Label, DriveGetFileSystem(StringLeft($compr_file, 2)) & "  Size = " & $compr_Size & "   on Disk = " & Round($FileSize / 1024) & " kB   WOF = " & $iReS)
 	EndIf
 
 	SystemFileRedirect("Off")
 
-	Exit
+	_GUICtrlStatusBar_SetText($hStatus," Select File Or Drive \ Folder", 0)
+	_GUICtrlStatusBar_SetText($hStatus,"", 1)
+	_GUICtrlStatusBar_SetText($hStatus,"", 2)
+	GUICtrlSetData($ProgressAll, 0)
+	DisableMenus(0)
+	; Exit
 EndFunc   ;==> _APPLY_Compress
 ;===================================================================================================
 Func _UnCompress()
@@ -863,8 +913,8 @@ Func _UnCompress()
 		$iSkip = 0
 		$iDirs = 0
 		$iProcessed = 0
-		$TotalFileSize_Before = 0
-		$TotalFileSize_After = 0
+		; $TotalFileSize_Before = 0
+		; $TotalFileSize_After = 0
 
 		If GUICtrlRead($Use_FileList) = $GUI_CHECKED And FileExists($compr_include_selected) Then
 			$handle = FileOpen($compr_include_selected, 0)
@@ -896,6 +946,8 @@ Func _UnCompress()
 
 		; _ArrayDisplay($FileList)
 
+		$LogFile = "processed" & "\UnCompress_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+
 		GUICtrlSetData($ProgStat_Label, "  Un-Compression is Running ...")
 
 		If GUICtrlRead($Use_FileList) = $GUI_CHECKED Then
@@ -917,12 +969,22 @@ Func _UnCompress()
 
 		GUICtrlSetData($ProgStat_Label, "")
 
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; End of Un-Compression ")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Processed Files       = " & $iProcessed)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Un-Compression Failed = " & $iFail)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Already  UnCompressed = " & $iSkip)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Used Size Drive " & $ComprDrive & " Before = " & Round($Used_Size_Before / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Used Size Drive " & $ComprDrive & " After  = " & Round($Used_Size_After / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Size  on  Drive " & $ComprDrive & " Wasted = " & Round(($Used_Size_After  - $Used_Size_Before) / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Time  = " & $time_msg)
+
 		MsgBox(64, " END of Un-Compression ", " End of Un-Compression " & @CRLF & @CRLF & " Processed = " & $iProcessed & " Files" & @CRLF _
 		& @CRLF & " Un-Compression Failed = " & $iFail & @CRLF & @CRLF & " Already UnCompressed = " & $iSkip & @CRLF _
 		& @CRLF & " Used Size Drive " & $ComprDrive & " Before = " & Round($Used_Size_Before / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Used Size Drive " & $ComprDrive & "  After   = " & Round($Used_Size_After / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Size  on Drive " & $ComprDrive & "  Wasted  = " & Round(($Used_Size_After  - $Used_Size_Before) / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Time  = " & $time_msg)
+		GUICtrlSetData($COMPR_DriveSize, $FSvar_ComprDrive & "   Drive Used Size = " & Round($Used_Size_After / 1024, 2) & " GB")
 	EndIf
 
 	; in case of Drive Or Folder Otherwise use WofCompress Tool of JFX
@@ -961,11 +1023,14 @@ Func _UnCompress()
 		$iReS = _Wof_Status_($sFilePath)
 		If $iReS = 1 Then
 			GUICtrlSetData($ProgStat_Label, "  Un-Compression is Running ...")
-			MsgBox(64, " Start of Un-Compression ", " Start Un-Compression of " & $compr_file & @CRLF _
-			& @CRLF & "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB", 2)
+;~ 			MsgBox(64, " Start of Un-Compression ", " Start Un-Compression of " & $compr_file & @CRLF _
+;~ 			& @CRLF & "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB", 2)
 			_GUICtrlStatusBar_SetText($hStatus,"  Un-Compression is Running - Wait .... ", 0)
 			$iRet = _Wof_Uncompress_($sFilePath)
-			; MsgBox(64, " Return ", " Return Un-Compress = 0 - OK " & $iRet)
+
+			; $iRet = RunWait(@ComSpec & " /c " & @WindowsDir & "\system32\compact.exe /U /EXE:" & $comp_type & " " & $compr_file, @ScriptDir, @SW_HIDE)
+			; MsgBox(64, " Return ", " Return Un-Compress 0 is OK - OK = " & $iRet)
+
 			If $iRet <> 0 Then
 				MsgBox(64, " Error - Un-Compression ", " Failed Un-Compression of " & $compr_file & @CRLF _
 				& @CRLF & "  Original FileSize = " & Round($FileSize_Org / 1024) & " kB")
@@ -984,16 +1049,26 @@ Func _UnCompress()
 
  		$FileSize = _WinAPI_GetCompressedFileSize($sFilePath)
 
+		$iReS = _Wof_Status_($sFilePath)
+
+		$compr_Size = FileGetSize($compr_file)
+		$compr_Size = Round($compr_Size / 1024)
 		GUICtrlSetData($ProgStat_Label, "")
 		GUICtrlSetData($ProgressAll, 100)
 		_GUICtrlStatusBar_SetText($hStatus," End of Un-Compression ", 0)
 		MsgBox(64, "WOF UnCompressed - Size on Disk", "    Original FileSize = " & Round($FileSize_Org / 1024) & " kB" & @CRLF _
 		& @CRLF & "UnCompressed FileSize = " & Round($FileSize / 1024) & " kB" & @CRLF & @CRLF & " Time  = " & Round($fDiff / 1000) & " sec")
+		GUICtrlSetData($COMPR_Size_Label, DriveGetFileSystem(StringLeft($compr_file, 2)) & "  Size = " & $compr_Size & "   on Disk = " & Round($FileSize / 1024) & " kB   WOF = " & $iReS)
 	EndIf
 
 	SystemFileRedirect("Off")
 
-	Exit
+	_GUICtrlStatusBar_SetText($hStatus," Select File Or Drive \ Folder", 0)
+	_GUICtrlStatusBar_SetText($hStatus,"", 1)
+	_GUICtrlStatusBar_SetText($hStatus,"", 2)
+	GUICtrlSetData($ProgressAll, 0)
+	DisableMenus(0)
+	; Exit
 EndFunc   ;==> _UnCompress
 ;===================================================================================================
 Func DisableMenus($endis)
@@ -1003,17 +1078,20 @@ Func DisableMenus($endis)
 		$endis = $GUI_DISABLE
 	EndIf
 
- 	GUICtrlSetState($EXCL_FileSelect, $endis)
- 	GUICtrlSetState($EXCL_FileData, $endis)
 
 	If $compr_file <> "" Then
 		GUICtrlSetState($COMPR_DriveSel, $GUI_DISABLE)
 		GUICtrlSetState($COMPR_Drive_GUI, $GUI_DISABLE)
 		GUICtrlSetState($Use_Tool, $GUI_UNCHECKED + $GUI_DISABLE)
+		GUICtrlSetState($EXCL_FileSelect, $GUI_DISABLE)
+		GUICtrlSetData($EXCL_FileData, "")
 	Else
 		GUICtrlSetState($COMPR_DriveSel, $endis)
 		GUICtrlSetState($COMPR_Drive_GUI, $endis)
 		GUICtrlSetState($Use_Tool, $endis)
+		GUICtrlSetState($EXCL_FileSelect, $endis)
+		GUICtrlSetState($EXCL_FileData, $endis)
+		GUICtrlSetData($EXCL_FileData, $excl_file)
 	EndIf
 	GUICtrlSetState($Use_FileList, $endis)
 	GUICtrlSetState($COMPR_TYPE_COMBO, $endis)
@@ -1084,6 +1162,7 @@ Func _Wof_Progress_Compress($aFileList, $NrAllFiles)
 		SetError(1)
 		Return -1
 	EndIf
+	FileWriteLine(@ScriptDir & "\" & $LogFile,"; " & $aFileList[0])
 	For $c = 1 To $aFileList[0]
 		$NrFiles += 1
 		$fProgressAll = Int($NrFiles * 100/ $NrAllFiles)
@@ -1097,11 +1176,15 @@ Func _Wof_Progress_Compress($aFileList, $NrAllFiles)
 		_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
 		$iProcessed += 1
 		$sFilePath = "\\.\" & $aFileList[$c]
-		$TotalFileSize_Before += _WinAPI_GetCompressedFileSize($sFilePath)
+		; $TotalFileSize_Before += _WinAPI_GetCompressedFileSize($sFilePath)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; " & $aFileList[$c])
 
 		$iReS = _Wof_Status_($sFilePath)
 		If $iReS = 0 Then
 			$iRet = _Wof_Compress_($sFilePath, $COMPRESSION_FORMAT)
+
+			; $iRet = RunWait(@ComSpec & " /c " & @WindowsDir & "\system32\compact.exe /C /EXE:" & $comp_type & " " & $aFileList[$c], @ScriptDir, @SW_HIDE)
+
 			If $iRet <> 1 Then
 				; Not Compressable
 				$iFail += 1
@@ -1110,7 +1193,7 @@ Func _Wof_Progress_Compress($aFileList, $NrAllFiles)
 			; File Already Compressed
 			$iSkip += 1
 		EndIf
-		$TotalFileSize_After += _WinAPI_GetCompressedFileSize($sFilePath)
+		; $TotalFileSize_After += _WinAPI_GetCompressedFileSize($sFilePath)
 	Next
 	Return
 EndFunc  ;==>_Wof_Progress_Compress
@@ -1124,6 +1207,7 @@ Func _Wof_Progress_Uncompress($aFileList, $NrAllFiles)
 		SetError(1)
 		Return -1
 	EndIf
+	FileWriteLine(@ScriptDir & "\" & $LogFile, "; " & $aFileList[0])
 	For $c = 1 To $aFileList[0]
 		$NrFiles += 1
 		$fProgressAll = Int($NrFiles * 100/ $NrAllFiles)
@@ -1137,11 +1221,15 @@ Func _Wof_Progress_Uncompress($aFileList, $NrAllFiles)
 		_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
 		$iProcessed += 1
 		$sFilePath = "\\.\" & $aFileList[$c]
-		$TotalFileSize_Before += _WinAPI_GetCompressedFileSize($sFilePath)
+		; $TotalFileSize_Before += _WinAPI_GetCompressedFileSize($sFilePath)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; " & $aFileList[$c])
 
 		$iReS = _Wof_Status_($sFilePath)
 		If $iReS = 1 Then
 			$iRet = _Wof_Uncompress_($sFilePath)
+
+			; $iRet = RunWait(@ComSpec & " /c " & @WindowsDir & "\system32\compact.exe /U /EXE:" & $comp_type & " " & $aFileList[$c], @ScriptDir, @SW_HIDE)
+
 			If $iRet <> 0 Then
 				; Error Uncompression - should not occur
 				$iFail += 1
@@ -1150,7 +1238,7 @@ Func _Wof_Progress_Uncompress($aFileList, $NrAllFiles)
 			; Already Un-Compressed
 			$iSkip += 1
 		EndIf
-		$TotalFileSize_After += _WinAPI_GetCompressedFileSize($sFilePath)
+		; $TotalFileSize_After += _WinAPI_GetCompressedFileSize($sFilePath)
 	Next
 	Return
 EndFunc  ;==>_Wof_Progress_Uncompess
