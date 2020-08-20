@@ -2,9 +2,9 @@
 
  AutoIt Version: 3.3.14.5 + file SciTEUser.properties in your UserProfile e.g. C:\Users\User-10
 
- Author:        WIMB  -  August 11, 2020
+ Author:        WIMB  -  August 19, 2020
 
- Program:       WOF_Compress_x64.exe - Version 3.7 in rule 160
+ Program:       WOF_Compress_x64.exe - Version 3.8 in rule 160
 
  Script Function:
 	WOF Compression and Uncompression of Files Or Drives and Folders using Status and Compress Functions made by erwan.l
@@ -85,12 +85,12 @@ Global $hDll_NTDLL, $sFilePath = "", $FileSize_Org = 0, $FileSize = 0, $COMPRESS
 
 ; Declaration GUI variables
 Global $hGuiParent, $ProgressAll, $hStatus, $EXIT, $ProgStat_Label
-Global $COMPRESS_BUTTON, $UNCOMPRESS_BUTTON, $COMPR_TYPE_COMBO, $Use_Tool, $Use_FileList
+Global $COMPRESS_BUTTON, $UNCOMPRESS_BUTTON, $COMPR_TYPE_COMBO, $Use_Tool, $Use_FileList, $LIST_WOF_BUTTON
 Global $COMPR_FileSelect, $COMPR_File_GUI, $COMPR_Size_Label, $EXCL_FileData, $EXCL_FileSelect
 Global $COMPR_Drive_GUI, $COMPR_DriveSel, $COMPR_DriveSize
 ; Setting Other variables
 Global $comp_type = "LZX", $compr_file="", $compr_Size=0, $compr_fsel_flag = 0, $PE_flag = 0
-Global $ComprDrive="", $FSvar_ComprDrive="", $DriveSysType="Fixed", $compr_Path = "", $LogFile = ""
+Global $ComprDrive="", $FSvar_ComprDrive="", $DriveSysType="Fixed", $compr_Path = "", $LogFile = "", $pos_TS, $len_TS, $path_folder = "", $drv = ""
 
 Global $config_file_compress=@ScriptDir & "\makebt\Compress_Exclude.ini", $excl_file = @ScriptDir & "\makebt\WimBootReCompress.ini"
 Global $config_file_tool=@ScriptDir & "\makebt\WimBootReCompress.ini"
@@ -157,9 +157,9 @@ $hGuiParent = GUICreate(" WOF_Compress x64 - Files Or Folders ", 400, 430, -1, -
 GUISetOnEvent($GUI_EVENT_CLOSE, "_Quit")
 
 If $PE_flag = 1 Then
-	GUICtrlCreateGroup("Settings - Version 3.7  -   OS = " & @OSVersion & " " & @OSArch & "  PE", 18, 10, 364, 195)
+	GUICtrlCreateGroup("Settings - Version 3.8  -   OS = " & @OSVersion & " " & @OSArch & "  PE", 18, 10, 364, 195)
 Else
-	GUICtrlCreateGroup("Settings - Version 3.7  -   OS = " & @OSVersion & " " & @OSArch, 18, 10, 364, 195)
+	GUICtrlCreateGroup("Settings - Version 3.8  -   OS = " & @OSVersion & " " & @OSArch, 18, 10, 364, 195)
 EndIf
 
 GUICtrlCreateLabel( "  Exclusion File ", 32, 39)
@@ -208,9 +208,14 @@ $COMPR_DriveSel = GUICtrlCreateButton("...", 341, 303, 26, 18)
 GUICtrlSetTip(-1, " Select Drive Or Folder - NTFS needed ")
 GUICtrlSetOnEvent($COMPR_DriveSel, "_compr_drive")
 
+$LIST_WOF_BUTTON = GUICtrlCreateButton("WOF Status", 235, 360, 70, 30)
+GUICtrlSetOnEvent($LIST_WOF_BUTTON, "_List_WOF_Status")
+GUICtrlSetTip($LIST_WOF_BUTTON, " List WOF Status of Files or Folders on NTFS Drive " & @CRLF _
+& " WOF_Status List is generated in Folder processed ")
+
 $EXIT = GUICtrlCreateButton("EXIT", 320, 360, 60, 30)
 GUICtrlSetOnEvent($EXIT, "_Quit")
-$ProgStat_Label = GUICtrlCreateLabel( "", 32, 352, 213, 15, $ES_READONLY)
+$ProgStat_Label = GUICtrlCreateLabel( "", 32, 352, 203, 15, $ES_READONLY)
 $ProgressAll = GUICtrlCreateProgress(16, 368, 203, 16, $PBS_SMOOTH)
 
 $hStatus = _GUICtrlStatusBar_Create($hGuiParent, -1, "", $SBARS_TOOLTIPS)
@@ -308,6 +313,12 @@ Func CheckGo()
  		GUICtrlSetState($COMPRESS_BUTTON, $GUI_DISABLE)
  		GUICtrlSetState($UNCOMPRESS_BUTTON, $GUI_DISABLE)
 	EndIf
+	If $compr_Path <> "" And GUICtrlRead($Use_Tool) = $GUI_UNCHECKED Then
+		GUICtrlSetState($LIST_WOF_BUTTON, $GUI_ENABLE)
+	Else
+		GUICtrlSetState($LIST_WOF_BUTTON, $GUI_DISABLE)
+	EndIf
+
 EndFunc ;==> _CheckGo
 ;===================================================================================================
 Func _Quit()
@@ -545,7 +556,12 @@ Func _compr_drive()
 		; _GUICtrlStatusBar_SetText($hStatus," Calculating Directory Size ....", 0)
 		; GUICtrlSetData($COMPR_DriveSize, $FSvar_ComprDrive & "     " & Round(DirGetSize($compr_Path) / 1024 /1024) & " MB")
 		GUICtrlSetData($COMPR_DriveSize, $FSvar_ComprDrive & "   Drive Used Size = " & $Used_Size_Before & " GB")
-		_GUICtrlStatusBar_SetText($hStatus," Compress Or UnCompress Drive \ Folder", 0)
+
+		If GUICtrlRead($Use_Tool) = $GUI_UNCHECKED Then
+			_GUICtrlStatusBar_SetText($hStatus," Compress Or UnCompress Or Get Status Drive \ Folder", 0)
+		Else
+			_GUICtrlStatusBar_SetText($hStatus," Compress Or UnCompress  Drive \ Folder", 0)
+		EndIf
 	EndIf
 	DisableMenus(0)
 EndFunc   ;==> _compr_drive
@@ -753,7 +769,15 @@ Func _APPLY_Compress()
 
 		; _ArrayDisplay($FileList)
 
-		$LogFile = "processed" & "\Compress_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		$len_TS = StringLen($compr_Path)
+		$drv = StringLeft($compr_Path, 1)
+		If $len_TS > 3 Then
+			$pos_TS = StringInStr($compr_Path, "\", 0, -1)
+			$path_folder = StringRight($compr_Path, $len_TS - $pos_TS)
+			$LogFile = "processed" & "\Compress_" & $drv & "_" & $path_folder & "_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		Else
+			$LogFile = "processed" & "\Compress_" & $drv & "_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		EndIf
 
 		GUICtrlSetData($ProgStat_Label, "  Compression is Running ...")
 
@@ -794,6 +818,8 @@ Func _APPLY_Compress()
 		& @CRLF & " Size  on   Drive  " & $ComprDrive & "  Saved  = " & Round(($Used_Size_Before  - $Used_Size_After) / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Time  = " & $time_msg)
 		GUICtrlSetData($COMPR_DriveSize, $FSvar_ComprDrive & "   Drive Used Size = " & Round($Used_Size_After / 1024, 2) & " GB")
+
+		ShellExecute("notepad.exe", $LogFile, @ScriptDir)
 	EndIf
 
 	; in case of Drive Or Folder Otherwise use WofCompress Tool of JFX
@@ -953,7 +979,15 @@ Func _UnCompress()
 
 		; _ArrayDisplay($FileList)
 
-		$LogFile = "processed" & "\UnCompress_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		$len_TS = StringLen($compr_Path)
+		$drv = StringLeft($compr_Path, 1)
+		If $len_TS > 3 Then
+			$pos_TS = StringInStr($compr_Path, "\", 0, -1)
+			$path_folder = StringRight($compr_Path, $len_TS - $pos_TS)
+			$LogFile = "processed" & "\UnCompress_" & $drv & "_" & $path_folder & "_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		Else
+			$LogFile = "processed" & "\UnCompress_" & $drv & "_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		EndIf
 
 		GUICtrlSetData($ProgStat_Label, "  Un-Compression is Running ...")
 
@@ -994,6 +1028,8 @@ Func _UnCompress()
 		& @CRLF & " Size  on Drive " & $ComprDrive & "  Wasted  = " & Round(($Used_Size_After  - $Used_Size_Before) / 1024, 2) & " GB" & @CRLF _
 		& @CRLF & " Time  = " & $time_msg)
 		GUICtrlSetData($COMPR_DriveSize, $FSvar_ComprDrive & "   Drive Used Size = " & Round($Used_Size_After / 1024, 2) & " GB")
+
+		ShellExecute("notepad.exe", $LogFile, @ScriptDir)
 	EndIf
 
 	; in case of Drive Or Folder Otherwise use WofCompress Tool of JFX
@@ -1084,6 +1120,129 @@ Func _UnCompress()
 	; Exit
 EndFunc   ;==> _UnCompress
 ;===================================================================================================
+Func _List_WOF_Status()
+
+	Local $val=0, $iPID, $iReS = 0, $iRet = 1, $time_msg = "", $time_sec = 0
+	Local $handle, $line, $count=0
+
+	DisableMenus(1)
+
+	SystemFileRedirect("On")
+
+	GUICtrlSetData($ProgressAll, 30)
+
+	; in case of Drive Or Folder make FileList with _WOF_FileSearch and use _Wof_Progress_Uncompress
+	If $compr_Path <> "" And GUICtrlRead($Use_Tool) = $GUI_UNCHECKED Then
+
+		Local $FileList
+
+;~ 		; test if ObjCreate is possible as it is needed in Func _FileSearch
+;~ 		Local $oTest = ObjCreate("Scripting.FileSystemObject")
+;~ 		If @error Then
+;~ 			SystemFileRedirect("Off")
+;~ 			GUICtrlSetData($ProgressAll, 0)
+;~ 			MsgBox(64, " ObjCreate Failed ", " Cannot Make FileList " & @CRLF & @CRLF & " Cannot do Compression ")
+;~ 			Return
+;~ 		EndIf
+
+		Local $hTimer = TimerInit() ; Begin the timer and store the handle in a variable.
+
+		$Used_Size_Before = DriveSpaceTotal($ComprDrive) - DriveSpaceFree($ComprDrive)
+
+		_GUICtrlStatusBar_SetText($hStatus," Preparing FileList ", 0)
+		GUICtrlSetData($ProgressAll, 0)
+		$NrFiles = 0
+		$iFail = 0
+		$iSkip = 0
+		$iDirs = 0
+		$iProcessed = 0
+		; $TotalFileSize_Before = 0
+		; $TotalFileSize_After = 0
+
+		If GUICtrlRead($Use_FileList) = $GUI_CHECKED And FileExists($compr_include_selected) Then
+			$handle = FileOpen($compr_include_selected, 0)
+			$count = 0
+			While $count < 2999
+				$line = FileReadLine($handle)
+				If @error = -1 Then ExitLoop
+				If $line <> "" And StringLeft($line,1) = "\" And FileExists($ComprDrive & $line) Then
+					$count = $count + 1
+					$line = StringStripWS($line, 3)
+					$incl_list[0] = $count
+					$incl_list[$count]=$ComprDrive & $line
+				EndIf
+			Wend
+			FileClose($handle)
+		Else
+			$FileList = _WOF_FileSearch($compr_Path)
+
+			If UBound($FileList, $UBOUND_ROWS)=0 Then
+				SystemFileRedirect("Off")
+				MsgBox(64, "FileList Invalid ", " Empty FileList Or Empty Folder Selected = " & $compr_Path)
+				_GUICtrlStatusBar_SetText($hStatus," Select Drive Or Folder on NTFS Drive", 0)
+				GUICtrlSetData($ProgressAll, 0)
+				DisableMenus(0)
+				Return
+			EndIf
+
+		EndIf
+
+		; _ArrayDisplay($FileList)
+
+		$len_TS = StringLen($compr_Path)
+		$drv = StringLeft($compr_Path, 1)
+		If $len_TS > 3 Then
+			$pos_TS = StringInStr($compr_Path, "\", 0, -1)
+			$path_folder = StringRight($compr_Path, $len_TS - $pos_TS)
+			$LogFile = "processed" & "\WOF_Status_" & $drv & "_" & $path_folder & "_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		Else
+			$LogFile = "processed" & "\WOF_Status_" & $drv & "_" & @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN & "-" & @SEC & ".txt"
+		EndIf
+
+		GUICtrlSetData($ProgStat_Label, "  List WOF Status is Running ...")
+
+		If GUICtrlRead($Use_FileList) = $GUI_CHECKED Then
+			_Wof_Progress_List_Status($incl_list, $incl_list[0])
+		Else
+			_Wof_Progress_List_Status($FileList, $FileList[0])
+		EndIf
+
+		Local $fDiff = TimerDiff($hTimer) ; Find the difference in time from the previous call of TimerInit
+
+		$time_sec = Round($fDiff / 1000)
+		If $time_sec > 60 Then
+			$time_msg = Int($time_sec / 60) & ":" & Mod($time_sec, 60) & " min"
+		Else
+			$time_msg = $time_sec & " sec"
+		EndIf
+
+		$Used_Size_After = DriveSpaceTotal($ComprDrive) - DriveSpaceFree($ComprDrive)
+
+		GUICtrlSetData($ProgStat_Label, "")
+
+		FileWriteLine(@ScriptDir & "\" & $LogFile, ";")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, ";")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; End of List WOF Status ")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Processed Files       = " & $iProcessed)
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Used Size Drive " & $ComprDrive & " = " & Round($Used_Size_Before / 1024, 2) & " GB")
+		FileWriteLine(@ScriptDir & "\" & $LogFile, "; Time  = " & $time_msg)
+
+		MsgBox(64, " END of List WOF Status ", " End of List WOF Status " & @CRLF & @CRLF & " Processed = " & $iProcessed & " Files" & @CRLF _
+		& @CRLF & " Time  = " & $time_msg)
+
+		ShellExecute("notepad.exe", $LogFile, @ScriptDir)
+	EndIf
+
+	SystemFileRedirect("Off")
+
+	_GUICtrlStatusBar_SetText($hStatus," Select File Or Drive \ Folder", 0)
+	_GUICtrlStatusBar_SetText($hStatus,"", 1)
+	_GUICtrlStatusBar_SetText($hStatus,"", 2)
+	GUICtrlSetData($ProgressAll, 0)
+	DisableMenus(0)
+	; Exit
+EndFunc   ;==> _List_WOF_Status
+;===================================================================================================
 Func DisableMenus($endis)
 	If $endis = 0 Then
 		$endis = $GUI_ENABLE
@@ -1119,6 +1278,7 @@ Func DisableMenus($endis)
 
 	GUICtrlSetState($COMPRESS_BUTTON, $GUI_DISABLE)
 	GUICtrlSetState($UNCOMPRESS_BUTTON, $GUI_DISABLE)
+	GUICtrlSetState($LIST_WOF_BUTTON, $GUI_DISABLE)
 
 	GUICtrlSetState($EXIT, $endis)
 
@@ -1235,13 +1395,14 @@ Func _Wof_Progress_Compress($aFileList, $NrAllFiles)
 		$NrFiles += 1
 		$fProgressAll = Int($NrFiles * 100/ $NrAllFiles)
 		GUICtrlSetData($ProgressAll, $fProgressAll)
-		; _GUICtrlStatusBar_SetText($hStatus, StringRight($aFileList[$c], 45), 0)
-		If StringLen($aFileList[$c]) > 45 Then
-			_GUICtrlStatusBar_SetText($hStatus, StringLeft($aFileList[$c], 21) & "...." & StringRight($aFileList[$c], 21), 0)
-		Else
-			_GUICtrlStatusBar_SetText($hStatus, $aFileList[$c], 0)
+		If Mod($NrFiles, 10) = 0 Or $NrFiles = 1 Or $NrFiles = $NrAllFiles Then
+			If StringLen($aFileList[$c]) > 45 Then
+				_GUICtrlStatusBar_SetText($hStatus, StringLeft($aFileList[$c], 21) & "...." & StringRight($aFileList[$c], 21), 0)
+			Else
+				_GUICtrlStatusBar_SetText($hStatus, $aFileList[$c], 0)
+			EndIf
+			_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
 		EndIf
-		_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
 		$iProcessed += 1
 		$sFilePath = "\\.\" & $aFileList[$c]
 		; $TotalFileSize_Before += _WinAPI_GetCompressedFileSize($sFilePath)
@@ -1281,13 +1442,14 @@ Func _Wof_Progress_Uncompress($aFileList, $NrAllFiles)
 		$NrFiles += 1
 		$fProgressAll = Int($NrFiles * 100/ $NrAllFiles)
 		GUICtrlSetData($ProgressAll, $fProgressAll)
-		; _GUICtrlStatusBar_SetText($hStatus, StringRight($aFileList[$c], 45), 0)
-		If StringLen($aFileList[$c]) > 45 Then
-			_GUICtrlStatusBar_SetText($hStatus, StringLeft($aFileList[$c], 21) & "...." & StringRight($aFileList[$c], 21), 0)
-		Else
-			_GUICtrlStatusBar_SetText($hStatus, $aFileList[$c], 0)
+		If Mod($NrFiles, 50) = 0 Or $NrFiles = 1 Or $NrFiles = $NrAllFiles Then
+			If StringLen($aFileList[$c]) > 45 Then
+				_GUICtrlStatusBar_SetText($hStatus, StringLeft($aFileList[$c], 21) & "...." & StringRight($aFileList[$c], 21), 0)
+			Else
+				_GUICtrlStatusBar_SetText($hStatus, $aFileList[$c], 0)
+			EndIf
+			_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
 		EndIf
-		_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
 		$iProcessed += 1
 		$sFilePath = "\\.\" & $aFileList[$c]
 		; $TotalFileSize_Before += _WinAPI_GetCompressedFileSize($sFilePath)
@@ -1312,6 +1474,38 @@ Func _Wof_Progress_Uncompress($aFileList, $NrAllFiles)
 	Next
 	Return
 EndFunc  ;==>_Wof_Progress_Uncompess
+;===================================================================================================
+Func _Wof_Progress_List_Status($aFileList, $NrAllFiles)
+	Local $fProgressAll, $c, $FileName
+	Local $iReS = 0, $iRes_After = 0, $iRet = 0
+
+	_GUICtrlStatusBar_SetText($hStatus,$NrAllFiles, 2)
+	If $aFileList[0] = 0 Then
+		SetError(1)
+		Return -1
+	EndIf
+	FileWriteLine(@ScriptDir & "\" & $LogFile, "; WOF Status ; Number of Files ; " & $aFileList[0])
+	For $c = 1 To $aFileList[0]
+		$NrFiles += 1
+		$fProgressAll = Int($NrFiles * 100/ $NrAllFiles)
+		GUICtrlSetData($ProgressAll, $fProgressAll)
+		If Mod($NrFiles, 50) = 0 Or $NrFiles = 1 Or $NrFiles = $NrAllFiles Then
+			If StringLen($aFileList[$c]) > 45 Then
+				_GUICtrlStatusBar_SetText($hStatus, StringLeft($aFileList[$c], 21) & "...." & StringRight($aFileList[$c], 21), 0)
+			Else
+				_GUICtrlStatusBar_SetText($hStatus, $aFileList[$c], 0)
+			EndIf
+			_GUICtrlStatusBar_SetText($hStatus,$NrFiles, 1)
+		EndIf
+
+		$iProcessed += 1
+		$sFilePath = "\\.\" & $aFileList[$c]
+
+		$iReS = _Wof_Status2_($sFilePath)
+ 		FileWriteLine(@ScriptDir & "\" & $LogFile, "; " & $iReS & " ; " & $aFileList[$c])
+	Next
+	Return
+EndFunc  ;==>_Wof_Progress_List_Status
 ;===================================================================================================
 ; AZJIO - modified by wimb - https://www.autoitscript.com/forum/topic/133224-_filesearch-_foldersearch/
 Func _WOF_FileSearch($sPath, $sMask = '*', $iDepth = 125, $iExcludeFlag = 0)
