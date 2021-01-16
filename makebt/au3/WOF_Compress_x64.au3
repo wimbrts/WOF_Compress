@@ -2,9 +2,9 @@
 
  AutoIt Version: 3.3.14.5 + file SciTEUser.properties in your UserProfile e.g. C:\Users\User-10
 
- Author:        WIMB  -  August 19, 2020
+ Author:        WIMB  -  January 16, 2021
 
- Program:       WOF_Compress_x64.exe - Version 3.8 in rule 160
+ Program:       WOF_Compress_x64.exe - Version 3.9 in rule 160
 
  Script Function:
 	WOF Compression and Uncompression of Files Or Drives and Folders using Status and Compress Functions made by erwan.l
@@ -157,9 +157,9 @@ $hGuiParent = GUICreate(" WOF_Compress x64 - Files Or Folders ", 400, 430, -1, -
 GUISetOnEvent($GUI_EVENT_CLOSE, "_Quit")
 
 If $PE_flag = 1 Then
-	GUICtrlCreateGroup("Settings - Version 3.8  -   OS = " & @OSVersion & " " & @OSArch & "  PE", 18, 10, 364, 195)
+	GUICtrlCreateGroup("Settings - Version 3.9  -   OS = " & @OSVersion & " " & @OSArch & "  PE", 18, 10, 364, 195)
 Else
-	GUICtrlCreateGroup("Settings - Version 3.8  -   OS = " & @OSVersion & " " & @OSArch, 18, 10, 364, 195)
+	GUICtrlCreateGroup("Settings - Version 3.9  -   OS = " & @OSVersion & " " & @OSArch, 18, 10, 364, 195)
 EndIf
 
 GUICtrlCreateLabel( "  Exclusion File ", 32, 39)
@@ -433,7 +433,7 @@ EndFunc   ;==> _compr_fsel
 ;===================================================================================================
 Func _compr_drive()
 	Local $DriveSelect, $Tdrive, $FSvar, $valid = 0, $ValidDrives, $RemDrives
-	Local $NoDrive[3] = ["A:", "B:", "X:"], $FileSys[1] = ["NTFS"]
+	Local $NoDrive[2] = ["A:", "B:"], $FileSys[1] = ["NTFS"]
 	Local $pos, $len
 
 	DisableMenus(1)
@@ -492,7 +492,7 @@ Func _compr_drive()
 	FOR $d IN $NoDrive
 		If $d = $Tdrive Then
 			$valid = 0
-			MsgBox(48, "ERROR - Drive NOT Valid", " Drive A: B: and X: ", 3)
+			MsgBox(48, "ERROR - Drive NOT Valid", " Drive A: and B: Not Valid ", 3)
 			_GUICtrlStatusBar_SetText($hStatus," Select File Or Drive \ Folder", 0)
 			DisableMenus(0)
 			Return
