@@ -1,5 +1,0 @@
-﻿; This is an example FileList for WOF_Compress of files ocurring on selected Target Drive
-; each valid entry should start with a backslash folowed by full path and filename with extension
-; a leading ; can used for lines with comment
-; \UEFI_MULTI-89\UEFI_MULTI_x64.exe
-; \UEFI_MULTI-89\UEFI_MULTI_x86.exe
